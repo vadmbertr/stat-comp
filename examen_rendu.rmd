@@ -502,7 +502,10 @@ ggplot(data = auc.tbl, aes(x = auc, fill = est)) +
   labs(x = "AUC", y = "Effectif", fill = "Classifieur", color = "Classifieur", linetype = "Intervalle")
 ```
 
-La figure \@ref(fig:plot-3-confint) permet de visualiser les distributions des AUC calculées par bootstrap et les intervalles de confiance associés (par la méthode des percentiles décrite précédemment et par celle du pivot). Nous pouvons remarquer que les AUC obtenus pour le classifieur 2 sont légèrement moins étendus que ceux obtenus pour le 1. Par ailleurs, les intervalles de confiance ne sont pas disjoints, et donc que les performances des classifieurs ne sont pas si éloignées.
+La figure \@ref(fig:plot-3-confint) permet de visualiser les distributions des AUC calculées par bootstrap et les intervalles de confiance associés (par la méthode des percentiles décrite précédemment et par celle du pivot). Nous pouvons remarquer que les AUC obtenus pour le classifieur 2 sont légèrement moins étendus que ceux obtenus pour le 1. \newline
+Par ailleurs, les intervalles de confiance ne sont pas disjoints, il semblerait donc que les performances des classifieurs ne soient pas statistiquement différentes.
+
+4.
 
 ```{r, 3.4}
 P <- 1000
