@@ -63,7 +63,7 @@ $g(x)$ est une densité ssi :
    - $g(x)$ est $C^0$ et positive sur $\mathbb{R}$
    - $\int_{-\infty}^{+\infty} g(x) dx = 1$
 
-Or, $exp(u)$ est $C^0$ et positive sur $\mathbb{R}^-$ (car elle l'est sur $\mathbb{R}$), donc $g(x) = \frac{1}{2} exp(-|x|)$ est $C^0$ et positive sur $\mathbb{R}$.
+Or, $exp(u)$ est $C^0$ et positive sur $\mathbb{R}^-$ (car elle l'est sur $\mathbb{R}$), donc $g(x) = \frac{1}{2} exp(-|x|)$ est $C^0$ et positive sur $\mathbb{R}$. \newline
 La figure \@ref(fig:plot-1-g-density) permet d'illustrer ces propriétés pour $x \in [-5, 5]$.
 
 ```{r, 1.1}
@@ -89,6 +89,8 @@ Et d'après le développement \@ref(eq:ex1-1), nous avons bien que $\int_{-\inft
 \end{equation}
 
 Ce qui équivaut à vérifier que $g(x)$ est bien une densité.
+
+\newpage
 
 2.
 
@@ -150,6 +152,8 @@ rg <- function (n) { # retourne les réalisations de g
 }
 ```
 
+\newpage
+
 3.
 
 Nous avons utilisé notre procédure d'inversion pour générer un échantillon de taille 1000 selon la densité $g$. La représentation proposée sur la figure \@ref(fig:plot-1-g-densities) nous permet de valider graphiquement cette procédure, étant donné que la densité empirique de l'échantillon (tracée en bleu) est semblable à la densité théorique (en noir).
@@ -173,19 +177,16 @@ ggplot(data.frame(x = rg(1000)), aes(x)) +
 M <- sqrt(2 * exp(1) / pi)
 ```
 
-```{r plot-1-maj, fig.cap = "Représentation de $M = \\sqrt{\\frac{2e}{\\pi}}$ plus petit majorant tel que $f(x) \\leq Mg(x)$"}
+```{r plot-1-maj, fig.cap = "Représentation de $\\frac{f(x)}{g(x)}$"}
 ggplot() +
-  xlim(-5, 5) +
-  geom_function(fun = dnorm, aes(color = "f(x)")) +
-  geom_function(fun = function (x) {g(x) * M}, aes(color = "M*g(x)")) +
-  geom_function(fun = function (x) {g(x) * M - dnorm(x)}, aes(color = "M*g(x)-f(x)")) +
-  labs(x = "x", y = "y", color = "") +
-  scale_color_manual(values = c("f(x)" = "black",
-                                "M*g(x)" = "blue",
-                                "M*g(x)-f(x)" = "red"))
+  geom_function(fun = function (x) {dnorm(x) / g(x)}, xlim = c(-5, 5)) +
+  geom_hline(yintercept = M, linetype = "dashed") +
+  geom_vline(xintercept = 1, linetype = "dashed") +
+  geom_vline(xintercept = -1, linetype = "dashed") +
+  labs(x = "x", y = "y")
 ```
 
-La figure \@ref(fig:plot-1-maj) illustre bien que $M = \sqrt{\frac{2e}{\pi}}$ est le plus petit majorant tel que $f(x) \leq Mg(x), \: \forall x$ puisque nous pouvons voir que la courbe rouge, représentant la différence entre $Mg(x)$ et $f(x)$, est tangente à l'axe des abscisses en deux points et positive partout ailleurs.
+La figure \@ref(fig:plot-1-maj) illustre bien que $M = \sqrt{\frac{2e}{\pi}}$ est le plus petit majorant tel que $f(x) \leq Mg(x), \: \forall x$ puisque nous pouvons voir que la courbe noire, représentant la rapport entre $f(x)$ et $g(x)$, est inférieure à $M$ (droite horizontale en pointillés) mais tangente en deux points (-1 et 1, droites verticales en pointillés).
 
 Cette observation graphique est retrouvée par le calcul selon le développement \@ref(eq:ex1-4).
 
@@ -208,7 +209,7 @@ Cette observation graphique est retrouvée par le calcul selon le développement
             \forall x \in \mathbb{R}^-, \qquad \qquad & \frac{f(x)}{g(x)} =
                                         \sqrt{\frac{2}{\pi}}exp(\frac{-x^2}{2}-x)
                                         \stackrel{\text{not}}{=} M_-(x) \\
-            \Rightarrow \: & M_-^{'}(x) = \sqrt{\frac{2}{\pi}}exp(\frac{-x^2}{2}+x)(-x-1) \\
+            \Rightarrow \: & M_-^{'}(x) = \sqrt{\frac{2}{\pi}}exp(\frac{-x^2}{2}-x)(-x-1) \\
             donc, \: & M_-^{'}(x) = 0 \\
             \Leftrightarrow \: & x = -1 \\
             \Rightarrow \: & \min_{x \in \mathbb{R}^-} M_-(x) = M_-(-1) = \sqrt{\frac{2e}{\pi}}
@@ -231,11 +232,28 @@ rf <- function (n) { # retourne les réalisations de f et le taux de rejet
     Xn <- c(Xn, X0[idx]) # on conserve les x0 inférieurs ou égaux à f(x0)
     rejected <- rejected + sum(1-idx) # maj du nombre de rejets
   }
-  list(Xn = Xn, taux = rejected/(rejected+n))
+  list(Xn = Xn, rate = rejected/(rejected+n))
 }
 ```
 
-L'idée générale est de tirer une réalisation $x_0$ selon $g$ (sur la courbe noire de la figure \@ref(fig:plot-1-g-densities)), puis de tirer une réalisation $u_0$ selon la loi $\mathcal{U}([0, M*g(x_0)])$ (entre l'axe des abscisses et la courbe bleu de la figure \@ref(fig:plot-1-maj)) et de conserver $x_0$ si $u_0 \leq f(x_0)$ (entre l'axe des abscisses et la courbe noire de la figure \@ref(fig:plot-1-maj)).
+L'idée générale est de répéter $M$ fois :
+
+```{=latex}
+\begin{enumerate}
+    \item tirer une réalisation $x_0$ selon $g$,
+    \item tirer une réalisation $u_0$ selon la loi $\mathcal{U}([0, M*g(x_0)])$ (entre l'axe des abscisses et la courbe bleu de la figure \ref{fig:plot-1-rej}),
+    \item conserver $x_0$ si $u_0 \leq f(x_0)$ (entre l'axe des abscisses et la courbe noire de la figure \ref{fig:plot-1-rej}).
+\end{enumerate}
+```
+
+```{r plot-1-rej, fig.cap = "Illustration graphique de la procédure de rejet"}
+ggplot() +
+  xlim(-5, 5) +
+  geom_function(fun = function (x) {g(x) * M}, aes(color = "M*g(x)")) +
+  geom_function(fun = dnorm, aes(color = "f(x)")) +
+  labs(x = "x", y = "y", color = "") +
+  scale_color_manual(values = c("f(x)" = "black", "M*g(x)" = "blue"))
+```
 
 ```{r}
 rf.res <- rf(1000)
@@ -253,13 +271,19 @@ ggplot(data.frame(x = rf.res$Xn), aes(x)) +
                                 "f_hat" = "blue"))
 ```
 
-Nous obtenons un taux de rejet de `r round(rf.res$taux, 2)`. Au premier abord, ce taux peut paraitre étonnamment élevé étant donné que sur la figure \@ref(fig:plot-1-maj), la fonction $Mg(x)$ semble assez proche de $f(x)$. Cependant, il faut aussi noter que l'écart entre $Mg(x)$ et $f(x)$ est le plus important pour les valeurs les plus probables de la densité $f$. Aussi, si nous souhaitions diminuer le taux de rejet, nous pourrions considérer l'utilisation d'une densité auxiliaire permettant de mieux approximer $f$ autour de $0$, là où sa probabilité est la plus grande.
+Le taux de rejet est égale au rapport entre le nombre de tirages rejetés par notre procédure de rejet et le nombre de tirages réalisés total. Au plus ce taux est faible, au plus notre générateur est computationnellement performant.
+
+Nous obtenons un taux de rejet de `r round(rf.res$rate, 2)`, autrement dit : pour 4 tirages, nous en rejetons 1 et nous en acceptons 3. Au premier abord, ce taux peut paraitre étonnamment élevé étant donné que sur la figure \@ref(fig:plot-1-rej), la fonction $Mg(x)$ semble assez proche de $f(x)$. Cependant, il faut aussi noter que l'écart entre $Mg(x)$ et $f(x)$ est le plus important pour les valeurs les plus probables de la densité $f$. \newline
+Par ailleurs, si nous nous intéressons aux aires sous les courbes de $f(x)$ et $Mg(x)$ ce taux était même prévisible. Nous savons que $\int_{-\infty}^{+\infty} f(x) dx = \int_{-\infty}^{+\infty} g(x) dx = 1$, donc la "probabilité" (entre guillemets, car ce n'est pas formel) d'accepter un tirage est $\frac{\int_{-\infty}^{+\infty} f(x) dx}{\int_{-\infty}^{+\infty} Mg(x) dx} = \frac{1}{M} \simeq 0.76$ et celle de le rejeter est $1 - \frac{1}{M} \simeq 0.24$ : nous retrouvons le taux de rejet.
+
+Si nous souhaitions diminuer le taux de rejet, nous pourrions envisager de :
+
+* considérer l'utilisation d'une densité auxiliaire permettant de mieux approximer $f$ autour de $0$, là où sa probabilité est la plus grande,
+* utiliser la méthode du rejet adaptatif pour corriger l'approximation de $f$ itérativement.
 
 \newpage
 
 # Exercice 2
-
-Afin de mesurer la puissance du test permettant d'attester du niveau de performance d'un classifieur par une approche Monte Carlo, nous avons généré $M=10000$ *n*-échantillons représentant le succès ou non de la classification selon une loi $\mathcal{B}(n, p_1)$, où $p_1=0.95$ est le taux de bonne classification observé par validation croisée. Pour chacun de ces *n*-échantillons, nous calculons le taux empirique de bonne classification (sa moyenne empirique $\bar{X_n}$) et nous déterminons s'il convient de rejeter l'hypothèse nulle du test (que le taux de bonne classification est égale à $p_0$) en comparant la statistique de test calculée avec $\bar{X_n}$ au seuil de rejet au niveau $\alpha=0.05$.
 
 ```{r, Exercice2}
 M <- 10000
@@ -270,9 +294,11 @@ P0 <- c(0.8, 0.85, 0.9, 0.92, 0.93)
 N <- seq(50, 500, by = 50)
 ```
 
-Nous avons sous l'hypothèse nulle :
+Dans cet exercice, nous souhaitons nous assurer qu'un taux de bonne classification de $0.95$ obtenu par validation-croisée est conservé en confrontant le modèle à de nouvelles données, non utilisées pour son entrainement. Plus précisément, nous souhaitons invalider l'hypothèse que le score de validation est égal à certaines valeurs seuil : ${0.8, 0.85, 0.9, 0.92, 0.93}$. \newline
+Pour cela il est possible de réaliser des tests statistiques comparant les résultats obtenus sur un nouveau jeu de validation aux différents seuils. Sous l'hypothèse de nulle de ces tests, le taux de validation est supposé égal à $p_0 \in {0.8, 0.85, 0.9, 0.92, 0.93}$, l'hypothèse alternative étant qu'il vaut $p_1 = 0.95$. \newline
+Sous l'hypothèse nulle, nous savons que :
 $$\frac{\bar{X_n} - p_0}{\sqrt{\frac{p_0(1-p_0)}{n}}} \sim \mathcal{N}(0,1)$$
-Nous utiliserons donc la partie gauche de l'expression comme notre statistique de test. Et comme nous avons $p_1 > p_0$, nous utilisons comme seuil de rejet $q_{1-\alpha}$, le quantile $1-\alpha$ de la loi normale centrée-réduite. La figure \@ref(fig:plot-2-region) permet de visualiser la région de rejet du test.
+Aussi, nous pouvons utiliser la partie gauche de l'expression comme la statistique de test. Et comme nous avons $p_1 > p_0$, le seuil de rejet serait $q^{\mathcal{N}}_{1-\alpha}$, le quantile $1-\alpha$ de la loi normale centrée-réduite. La figure \@ref(fig:plot-2-region) permet de visualiser la région de rejet de ce test.
 
 ```{r plot-2-region, fig.cap = "Représentation de la région de rejet du test (en orange)"}
 ggplot() +
@@ -282,6 +308,23 @@ ggplot() +
   geom_vline(xintercept = treshold, color = "orange", linetype = "dashed") +
   labs(x = "x", y = "Densité")
 ```
+
+Afin d'avoir une confiance suffisante dans les résultats des tests nous aimerions connaître leur puissance statistique (c'est à dire la probabilité de rejeter à raison l'hypothèse nulle, et donc d'accepter un taux de bonne classification de $0.95$) en fonction de la taille de l'échantillon de validation. \newline
+Cette démarche peut être réalisée par une approche Monte Carlo :
+
+```{=latex}
+\begin{enumerate}
+    \item répéter $M$ fois :
+    \begin{enumerate}
+        \item générer un $n$-échantillon représentant le succès ou non de la classification selon une loi $\mathcal{B}(n, p_1)$, où $p_1=0.95$ est le taux de bonne classification observé par validation croisée,
+        \item calculer le taux empirique de bonne classification (sa moyenne empirique $\bar{X_n}$),
+        \item comparer la statistique de test calculée avec $\bar{X_n}$ au seuil de rejet au niveau $\alpha=0.05$ pour décider du rejet ou non du test.
+    \end{enumerate}
+    \item calculer la puissance estimée étant alors le nombre de tests rejetés (à raison), divisé par $M$.
+\end{enumerate}
+```
+
+Nous avons réalisé cette procédure en faisant varier la taille du jeu de validation $n \in [50, 500]$ par pas de $50$.
 
 ```{r}
 p.sd <- function (p, n) { # écart-type de p sous H0
@@ -309,8 +352,6 @@ mat <- do.call(cbind, lapply(N, function (n) { # pour chaque n
 }))
 ```
 
-L'objectif étant de choisir la taille du jeu de validation permettant de démontrer la performance du classifieur, nous avons calculé la puissance de détecter un taux de bonne classification de $p_1=0.95$ contre un taux potentiel de bonne classification $p_0 \in {0.8, 0.85, 0.9, 0.92, 0.93}$ en faisant varier la taille du jeu de validation $n \in [50, 500]$ par pas de $50$.
-
 ```{r plot-2-puissances, fig.cap = "Evolution de la puissance du test selon la taille de l'échantillon, pour différentes valeurs de $p_0$"}
 df <- data.frame(data = mat, row.names = P0)
 colnames(df) <- N
@@ -321,29 +362,39 @@ tbl$N <- as.numeric(tbl$N)
 
 ggplot(data = tbl) +
   geom_line(aes(x = N, y = pow, color = P0)) +
-  labs(x = "Taille de l'échantillon", y = "Puissance du test", color = "P0")
+  labs(x = "Taille de l'échantillon", y = "Puissance du test", color = "p0")
 ```
 
-La figure \@ref(fig:plot-2-puissances) présente les résultats obtenus. Nous pouvons observer que le classifieur permettrait de rejeter l'hypothèse d'un taux de bonne classification égale à $0.8$ avec une puissance de $1$ (donc une certitude de $100\%$) à partir d'un jeu de validation de taille $100$. En revanche, rejeter l'hypothèse d'un taux à $0.93$ avec une grande puissance statistique sera impossible, même avec un jeu de validation de taille $500$. S'il est primordial d'avoir une grande confiance dans le fait que le taux du classifieur est supérieur à $0.93$ il faudra donc beaucoup plus de données. Si un taux de classification à $0.9$ est acceptable, alors choisir un jeu de validation de taille $300$ permettra d'avoir une bonne confiance dans les performances attendues du classifieur, étant donné que la puissance statistique du test est alors supérieur à $0.9$.
+La figure \@ref(fig:plot-2-puissances) présente les résultats obtenus. Nous pouvons observer que la puissance du test augmente avec lorsque la taille de l'échantillon de validation augmente. Cela était attendu étant donné que quand $n$ augmente, la statistique de test augmente également. \newline
+Le test permettrait de rejeter l'hypothèse d'un taux de bonne classification égale à $0.8$ avec une puissance de $1$ (donc une certitude de $100\%$) à partir d'un jeu de validation de taille $100$. En revanche, rejeter l'hypothèse d'un taux à $0.93$ avec une grande puissance statistique sera impossible, même avec un jeu de validation de taille $500$. S'il est primordial d'avoir une grande confiance dans le fait que le taux du classifieur est supérieur à $0.93$ il faudra donc beaucoup plus de données. Si un taux de classification à $0.9$ est acceptable, alors choisir un jeu de validation de taille $300$ permettra d'avoir une bonne confiance dans les performances attendues du classifieur, étant donné que la puissance statistique du test est alors supérieur à $0.9$.
 
 \newpage
 
 # Exercice 3
 
-```{r}
+```{r, Exercice3}
 load("exo3.Rdata")
 ```
 
-```{r}
+1.
+
+Il existe deux mesures centrales en classification binaire : la sensibilité (le taux de positifs effectivement classés comme positifs) et la spécificité (le taux de négatifs effectivement classés négatifs). Un classifieur parfait aurait une sensibilité et une spécificité égales à $1$. En pratique, il faut réaliser un compromis entre sensibilité et spécificité en jouant sur la valeur du seuil de discrimination permettant d'affecter les observations à l'une des deux classes selon leur probabilité d'appartenance à la classe des positifs. La courbe ROC permet de visualiser ce compromis pour différents seuils.
+
+L'AUC correspond à l'aire sous la courbe ROC ; plus l'AUC est proche de $1$, meilleur est le compromis sensibilité / spécificité, quel que soit le seuil, et donc meilleur est le classifieur. L'AUC peut également être interprété comme la probabilité que le score d'une observation positive soit supérieur au score d'une observation négative, quelles que soient ces observations. Ainsi, un AUC de $1$ signifie que le plus petit score parmi les observations positives est supérieur au plus grand score parmi les négatives, et donc qu'il existe un seuil permettant de discriminer parfaitement les deux classes.
+
+2.
+
+```{r, 3.2}
+# courbes ROC
 roc.1 <- roc(y, prob1, quiet = T)
 roc.2 <- roc(y, prob2, quiet = T)
 ```
 
 ```{r}
-auc <- function (cases, controls) {
+auc <- function (cases, controls) { # calcul exact de l'AUC
   table <- do.call(rbind, lapply(cases, function (c) {
     row <- as.numeric(controls < c)
-    row[controls == c] <- 1/2
+    row[controls == c] <- 1/2 # les égalités sont réparties
     row
   }))
   mean(table)
@@ -359,13 +410,34 @@ auc.1 <- auc(cases.1, controls.1)
 auc.2 <- auc(cases.2, controls.2)
 ```
 
-```{r}
+Les deux classifieurs ont un AUC élevé, celui du premier étant égal à `r round(auc.1, 2)` et celui du deuxième à `r round(auc.2, 2)`. Selon ce critère, le classifieur 2 est donc légèrement plus performant que le 1.
+
+```{r plot-3-roc, fig.cap = "Courbes ROC des deux classifieurs"}
 ggroc(list(roc.1 = roc.1, roc.2 = roc.2)) +
   labs(x = "Spécificité", y = "Sensibilité", color = "Classifieur") +
   scale_color_discrete(labels = c(1, 2))
 ```
 
-```{r}
+La figure \@ref(fig:plot-3-roc) permet d'arriver à la même conclusion : les deux courbes sont proches des segments ((0,1), (1,1)) et ((1,1), (1,0)), ce qui traduit la bonne qualité des prédicteurs. De plus, la courbe ROC du classifieur 2 (en bleu) est principalement au-dessus de celle du 1 (en rouge), et montre que la sensibilité du classifieur 2 est meilleure que celle du classifieur 1.
+
+\newpage
+
+3.
+
+Il existe deux procédures bootstrap pour calculer un intervalle de confiance, la méthode des percentiles et celle du pivot. L'approche par les percentiles est la plus intuitive et consiste, pour un intervalle à $95\%$ et dans le cas de l'AUC, à :
+
+```{=latex}
+\begin{enumerate}
+    \item répéter $P$ fois :
+    \begin{enumerate}
+        \item tirer avec remise un $n$-échantillon de scores parmis les cas positifs et un $n$-échantillon parmis les cas négatifs,
+        \item calculer l'AUC à partir de ces deux tirages.
+    \end{enumerate}
+    \item calculer les percentiles $\frac{1-95\%}{2}$ et $1-\frac{1-95\%}{2}$ des $P$ AUC obtenus.
+\end{enumerate}
+```
+
+```{r, 3.3}
 B <- 1000
 
 auc.b <- function (scores) {
@@ -399,7 +471,9 @@ auc.conf.int.piv <- do.call(
 }))
 ```
 
-```{r}
+Appliquée aux scores des deux classifieurs étudiés ici, nous obtenons, au niveau $95\%$, l'intervalle de confiance [`r round(as.numeric(auc.conf.int.per[, 1]), 2)`] pour le classifieur 1 et [`r round(as.numeric(auc.conf.int.per[, 2]), 2)`] pour le 2.
+
+```{r plot-3-confint, fig.cap = "Distribution des AUC obtenus par bootstrap et les intervalles de confiance correspondants"}
 auc.tbl <- as_tibble(t(auc.df))
 auc.tbl$est <- as.factor(1:2)
 auc.tbl <- auc.tbl %>% pivot_longer(!est, values_to = "auc")
@@ -428,14 +502,19 @@ ggplot(data = auc.tbl, aes(x = auc, fill = est)) +
   labs(x = "AUC", y = "Effectif", fill = "Classifieur", color = "Classifieur", linetype = "Intervalle")
 ```
 
-```{r}
+La figure \@ref(fig:plot-3-confint) permet de visualiser les distributions des AUC calculées par bootstrap et les intervalles de confiance associés (par la méthode des percentiles décrite précédemment et par celle du pivot). Nous pouvons remarquer que les AUC obtenus pour le classifieur 2 sont légèrement moins étendus que ceux obtenus pour le 1. Par ailleurs, les intervalles de confiance ne sont pas disjoints, et donc que les performances des classifieurs ne sont pas si éloignées.
+
+```{r, 3.4}
 P <- 1000
 
-auc.sd <- function (auc) { # écart-type de l'AUC
-  sqrt(auc * (1 - auc)) # pas besoin de /n, constante
+auc.s <- function (cases1, controls1, cases2, controls2) { # statistique de test
+  auc1 <- auc(cases1, controls1)
+  auc2 <- auc(cases2, controls2)
+  return(abs(auc1 - auc2) / sqrt(auc1 * (1 - auc1) / length(cases1) * length(controls1) +
+                                 auc2 * (1 - auc2) / length(cases2) * length(controls2)))
 }
 
-d0 <- abs(auc.1 - auc.2) / (auc.sd(auc.1) + auc.sd(auc.2)) # pas besoin de /2, constante
+s0 <- auc.s(cases.1, controls.1, cases.2, controls.2)
 cases.Z <- c(cases.1, cases.2)
 controls.Z <- c(controls.1, controls.2)
 auc.diff.perm <- replicate(P, {
@@ -445,20 +524,18 @@ auc.diff.perm <- replicate(P, {
   cases.y <- cases.Z[-cases.i]
   controls.x <- controls.Z[controls.i]
   controls.y <- controls.Z[-controls.i]
-  auc.x <- auc(cases.x, controls.x)
-  auc.y <- auc(cases.y, controls.y)
-  abs(auc.x - auc.y) / (auc.sd(auc.x) + auc.sd(auc.y))
+  auc.s(cases.x, controls.x, cases.y, controls.y)
 })
 
-auc.diff.perm <- c(auc.diff.perm, d0)
-p.val.perm <- mean(auc.diff.perm >= d0)
+auc.diff.perm <- c(auc.diff.perm, s0)
+p.val.perm <- mean(auc.diff.perm >= s0)
 ```
 
 \newpage
 
 # Exercice 4
 
-```{r}
+```{r, Exercice4}
 load("exo4.Rdata")
 ```
 
@@ -520,6 +597,6 @@ rate.ind.tbl <- rate.ind.tbl %>% pivot_longer(!K, names_to = "B", values_to = "r
 ggplot() +
   geom_line(data = rate.ind.tbl, aes(x = K, y = rate, group = B, col = "bagging"), alpha = .1) +
   geom_line(data = rate.tbl, aes(x = K, y = rate, col = method)) +
-  scale_color_discrete(labels = c("Bagging", "k-ppv")) +
+  scale_color_discrete(labels = c("bagging", "k-ppv")) +
   labs(x = "k", y = "Taux de bonne classification", col = "Méthode")
 ```
