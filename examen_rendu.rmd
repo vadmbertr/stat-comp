@@ -418,7 +418,7 @@ ggroc(list(roc.1 = roc.1, roc.2 = roc.2)) +
   scale_color_discrete(labels = c(1, 2))
 ```
 
-La figure \@ref(fig:plot-3-roc) permet d'arriver à la même conclusion : les deux courbes sont proches des segments ((0,1), (1,1)) et ((1,1), (1,0)), ce qui traduit la bonne qualité des prédicteurs. De plus, la courbe ROC du classifieur 2 (en bleu) est principalement au-dessus de celle du 1 (en rouge), et montre que la sensibilité du classifieur 2 est meilleure que celle du classifieur 1.
+La figure \@ref(fig:plot-3-roc) présentant les courbes ROC des deux classifieurs permet d'arriver à la même conclusion : les deux courbes sont proches des segments ((0,1), (1,1)) et ((1,1), (1,0)), ce qui traduit la bonne qualité des prédicteurs. De plus, la courbe ROC du classifieur 2 (en bleu) est principalement au-dessus de celle du 1 (en rouge), et montre que la sensibilité du classifieur 2 est meilleure que celle du classifieur 1.
 
 \newpage
 
@@ -496,14 +496,30 @@ auc.conf.int.piv.tbl$borne <- as.numeric(auc.conf.int.piv.tbl$borne)
 
 auc.conf.int.tbl <- rbind(auc.conf.int.piv.tbl, auc.conf.int.per.tbl)
 
-ggplot(data = auc.tbl, aes(x = auc, fill = est)) +
+gh <- ggplot(data = auc.tbl, aes(x = auc, fill = est)) +
   geom_histogram(alpha = 0.6, position = "identity") +
   geom_vline(data = auc.conf.int.tbl, aes(xintercept = borne, color = est, linetype = method)) +
-  labs(x = "AUC", y = "Effectif", fill = "Classifieur", color = "Classifieur", linetype = "Intervalle")
+  labs(x = "AUC", y = "Effectif", fill = "Classifieur", color = "Classifieur", linetype = "Intervalle") +
+  theme(axis.title.x = element_blank(),
+        plot.margin = margin(0, 0, 0, 0, "pt"))
+gbp <- ggplot(data = auc.tbl, aes(x = auc, y = est, fill = est)) +
+  geom_boxplot() +
+  scale_fill_discrete(guide = "none") +
+  labs(x = "AUC", y = "Classifieur") +
+  theme(plot.margin = margin(0, 0, 0, 0, "pt"))
+
+layout <- "
+AAA
+AAA
+AAA
+BBB
+"
+gh / gbp +
+  plot_layout(design = layout, guides = "collect")
 ```
 
 La figure \@ref(fig:plot-3-confint) permet de visualiser les distributions des AUC calculées par bootstrap et les intervalles de confiance associés (par la méthode des percentiles décrite précédemment et par celle du pivot). Nous pouvons remarquer que les AUC obtenus pour le classifieur 2 sont légèrement moins étendus que ceux obtenus pour le 1. \newline
-Par ailleurs, les intervalles de confiance ne sont pas disjoints, il semblerait donc que les performances des classifieurs ne soient pas statistiquement différentes.
+Par ailleurs, les boîtes à moustaches laissent penser que la médiane des performances du classifieur 2 sont nettement supérieurs à celle du classifieur 1, mais les intervalles de confiance n'étant pas disjoints, il semblerait plutôt que les performances des classifieurs ne soient pas statistiquement différentes.
 
 4.
 
@@ -542,7 +558,14 @@ p.val.perm <- mean(auc.diff.perm >= s0)
 load("exo4.Rdata")
 ```
 
-```{r}
+1.
+
+Sur la figure \@ref(fig:plot-4-data) nous pouvons observer les catégories ($0$ en rouge et $1$ en bleu) prises par les observations
+des jeux d'entrainement (représentées par des points) et de test (représentées par des croix) selon les valeurs prises par les variables $X1$ et $X2$. \newline
+Nous pouvons remarquer que les deux catégories ne sont pas totalement distinctes. Mais il semble que pour la catégorie $0$, $X1$ est généralement plus faible que pour la catégorie $1$ et à l'inverse, $X2$ est globalement plus élevée pour la catégorie $0$ que pour la $1$. Les histogrammes montrent que la variable $X2$ permet de mieux discriminer que $X1$ et que les deux catégories sont équitablement représentées. \newline
+La figure permet également de noter que les jeux d'entrainement et de test sont similaires, ce qui est important pour obtenir un classifieur performant sur les données de test et pas uniquement sur celles d'entrainement.
+
+```{r plot-4-data, fig.height = 6, fig.cap = "Visualisation des jeux d'entrainement et de test"}
 train.df <- data.frame(X.train)
 train.df$cat <- y.train
 train.df$set <- "train"
@@ -552,10 +575,37 @@ test.df$set <- "test"
 df <- rbind(train.df, test.df)
 df$cat <- as.factor(df$cat)
 
-ggplot(data = df) +
+gp <- ggplot(data = df) +
   geom_point(aes(x = V1, y = V2, col = cat, shape = set)) +
   scale_shape_manual(values = c(3, 19)) +
-  labs(color = "Catégorie", shape = "Jeu")
+  scale_color_discrete(guide = "none") +
+  labs(color = "Catégorie", shape = "Jeu", x = "X1", y = "X2") +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.ticks.length.x = unit(0, "pt"),
+        axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.ticks.length.y = unit(0, "pt"),
+        plot.margin = margin(0, 0, 0, 0, "pt"))
+gh1 <- ggplot(data = df, aes(x = V1, fill = cat)) +
+  geom_histogram(alpha = 0.6, position = "identity") +
+  labs(fill = "Catégorie", x = "X1", y = "Effectif") +
+  theme(plot.margin = margin(0, 0, 0, 0, "pt"))
+gh2 <- ggplot(data = df, aes(y = V2, fill = cat)) +
+  geom_histogram(alpha = 0.6, position = "identity") +
+  labs(fill = "Catégorie", y = "X2", x = "Effectif") +
+  theme(plot.margin = margin(0, 0, 0, 0, "pt"))
+
+layout <- "
+ABBB
+ABBB
+ABBB
+#CCC
+"
+gh2 + gp + gh1 +
+  plot_layout(design = layout, guides = "collect")
 ```
 
 ```{r}
