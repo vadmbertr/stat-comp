@@ -34,7 +34,9 @@ options(scipen=999)
 ```{r}
 library(class)
 library(dplyr)
+library(ggpattern)
 library(ggplot2)
+library(kableExtra)
 library(latex2exp)
 library(patchwork)
 library(pROC)
@@ -295,7 +297,7 @@ N <- seq(50, 500, by = 50)
 ```
 
 Dans cet exercice, nous souhaitons nous assurer qu'un taux de bonne classification de $0.95$ obtenu par validation-croisée est conservé en confrontant le modèle à de nouvelles données, non utilisées pour son entrainement. Plus précisément, nous souhaitons invalider l'hypothèse que le score de validation est égal à certaines valeurs seuil : ${0.8, 0.85, 0.9, 0.92, 0.93}$. \newline
-Pour cela il est possible de réaliser des tests statistiques comparant les résultats obtenus sur un nouveau jeu de validation aux différents seuils. Sous l'hypothèse de nulle de ces tests, le taux de validation est supposé égal à $p_0 \in {0.8, 0.85, 0.9, 0.92, 0.93}$, l'hypothèse alternative étant qu'il vaut $p_1 = 0.95$. \newline
+Pour cela il est possible de réaliser des tests statistiques comparant les résultats obtenus sur un nouveau jeu de validation aux différents seuils. Sous l'hypothèse de nulle de ces tests, le taux de validation est supposé égal à $p_0 \in \{0.8, 0.85, 0.9, 0.92, 0.93\}$, l'hypothèse alternative étant qu'il vaut $p_1 = 0.95$. \newline
 Sous l'hypothèse nulle, nous savons que :
 $$\frac{\bar{X_n} - p_0}{\sqrt{\frac{p_0(1-p_0)}{n}}} \sim \mathcal{N}(0,1)$$
 Aussi, nous pouvons utiliser la partie gauche de l'expression comme la statistique de test. Et comme nous avons $p_1 > p_0$, le seuil de rejet serait $q^{\mathcal{N}}_{1-\alpha}$, le quantile $1-\alpha$ de la loi normale centrée-réduite. La figure \@ref(fig:plot-2-region) permet de visualiser la région de rejet de ce test.
@@ -496,16 +498,22 @@ auc.conf.int.piv.tbl$borne <- as.numeric(auc.conf.int.piv.tbl$borne)
 
 auc.conf.int.tbl <- rbind(auc.conf.int.piv.tbl, auc.conf.int.per.tbl)
 
+x.lim <- c(min(auc.tbl$auc), max(auc.tbl$auc))
+
 gh <- ggplot(data = auc.tbl, aes(x = auc, fill = est)) +
   geom_histogram(alpha = 0.6, position = "identity") +
   geom_vline(data = auc.conf.int.tbl, aes(xintercept = borne, color = est, linetype = method)) +
   labs(x = "AUC", y = "Effectif", fill = "Classifieur", color = "Classifieur", linetype = "Intervalle") +
+  xlim(x.lim) +
   theme(axis.title.x = element_blank(),
-        plot.margin = margin(0, 0, 0, 0, "pt"))
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        plot.margin = margin(0, 0, 1, 0, "pt"))
 gbp <- ggplot(data = auc.tbl, aes(x = auc, y = est, fill = est)) +
   geom_boxplot() +
   scale_fill_discrete(guide = "none") +
   labs(x = "AUC", y = "Classifieur") +
+  xlim(x.lim) +
   theme(plot.margin = margin(0, 0, 0, 0, "pt"))
 
 layout <- "
@@ -558,14 +566,21 @@ p.val.perm <- mean(auc.diff.perm >= s0)
 load("exo4.Rdata")
 ```
 
+Nous disposons d'un jeu d'entrainement de `r nrow(X.train)` observations et d'un jeu de test de `r nrow(X.test)`. Chacune des observations de ces jeux appartient à l'une des catégories $0$ ou $1$. Dans le jeu d'entrainement, respectivement `r nrow(X.train)-sum(y.train)` et `r sum(y.train)` observations appartiennent aux catégories $0$ et $1$ ; dans celui de test, respectivement `r nrow(X.test)-sum(y.test)` et `r sum(y.test)`. \newline
+Les jeux sont donc équilibrés.
+
 1.
 
-Sur la figure \@ref(fig:plot-4-data) nous pouvons observer les catégories ($0$ en rouge et $1$ en bleu) prises par les observations
-des jeux d'entrainement (représentées par des points) et de test (représentées par des croix) selon les valeurs prises par les variables $X1$ et $X2$. \newline
-Nous pouvons remarquer que les deux catégories ne sont pas totalement distinctes. Mais il semble que pour la catégorie $0$, $X1$ est généralement plus faible que pour la catégorie $1$ et à l'inverse, $X2$ est globalement plus élevée pour la catégorie $0$ que pour la $1$. Les histogrammes montrent que la variable $X2$ permet de mieux discriminer que $X1$ et que les deux catégories sont équitablement représentées. \newline
-La figure permet également de noter que les jeux d'entrainement et de test sont similaires, ce qui est important pour obtenir un classifieur performant sur les données de test et pas uniquement sur celles d'entrainement.
+```{r 4.1}
+```
 
-```{r plot-4-data, fig.height = 6, fig.cap = "Visualisation des jeux d'entrainement et de test"}
+Sur la figure \@ref(fig:plot-4-data) nous pouvons observer les catégories ($0$ en rouge et $1$ en bleu) prises par les observations
+des jeux d'entrainement (représentées par des points) et de test (représentées par des croix) selon leurs variables $X1$ et $X2$. \newline
+Nous avons également représenté les histogrammes des deux variables, pour les jeux de test et d'entrainement.
+
+Nous pouvons remarquer que les deux catégories ne sont pas totalement séparables. Mais il semble que $X1$ est généralement plus faible pour la catégorie $0$ que pour la catégorie $1$ et à l'inverse, $X2$ est globalement plus élevée pour la catégorie $0$ que pour la $1$. Cela se vérifie dans les deux jeux de données. Selon les histogrammes, il semblerait que la variable $X2$ permet de mieux discriminer que $X1$ dans le jeu d'entrainement, et que c'est moins le cas dans le jeu de test.
+
+```{r plot-4-data, fig.height = 6, fig.cap = "Aperçu des jeux d'entrainement et de test"}
 train.df <- data.frame(X.train)
 train.df$cat <- y.train
 train.df$set <- "train"
@@ -575,11 +590,15 @@ test.df$set <- "test"
 df <- rbind(train.df, test.df)
 df$cat <- as.factor(df$cat)
 
+x1.lim <- c(min(df$V1), max(df$V1))
+x2.lim <- c(min(df$V2), max(df$V2))
+
 gp <- ggplot(data = df) +
   geom_point(aes(x = V1, y = V2, col = cat, shape = set)) +
   scale_shape_manual(values = c(3, 19)) +
-  scale_color_discrete(guide = "none") +
-  labs(color = "Catégorie", shape = "Jeu", x = "X1", y = "X2") +
+  labs(color = "Catégorie", shape = "Jeu") +
+  xlim(x1.lim) +
+  ylim(x2.lim) +
   theme(axis.title.x = element_blank(),
         axis.text.x = element_blank(),
         axis.ticks.x = element_blank(),
@@ -588,27 +607,78 @@ gp <- ggplot(data = df) +
         axis.text.y = element_blank(),
         axis.ticks.y = element_blank(),
         axis.ticks.length.y = unit(0, "pt"),
+        plot.margin = margin(3, 3, 1, 1, "pt"))
+gh11 <- ggplot(data = df[df$set == "test", ], aes(x = V1, fill = cat)) +
+  geom_histogram_pattern(alpha = 0.6, position = "identity", pattern = "crosshatch", pattern_density = .0001,
+                         pattern_alpha = .6) +
+  scale_pattern_discrete(guide = "none") +
+  scale_fill_discrete(guide = "none") +
+  xlim(x1.lim) +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.ticks.length.x = unit(0, "pt"),
         plot.margin = margin(0, 0, 0, 0, "pt"))
-gh1 <- ggplot(data = df, aes(x = V1, fill = cat)) +
-  geom_histogram(alpha = 0.6, position = "identity") +
-  labs(fill = "Catégorie", x = "X1", y = "Effectif") +
-  theme(plot.margin = margin(0, 0, 0, 0, "pt"))
-gh2 <- ggplot(data = df, aes(y = V2, fill = cat)) +
-  geom_histogram(alpha = 0.6, position = "identity") +
-  labs(fill = "Catégorie", y = "X2", x = "Effectif") +
-  theme(plot.margin = margin(0, 0, 0, 0, "pt"))
+gh21 <- ggplot(data = df[df$set == "train", ], aes(y = V2, fill = cat)) +
+  geom_histogram_pattern(alpha = 0.6, position = "identity", pattern = "circle", pattern_fill = "black") +
+  scale_pattern_discrete(guide = "none") +
+  scale_fill_discrete(guide = "none") +
+  scale_x_reverse() +
+  labs(y = "X2") +
+  ylim(x2.lim) +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        plot.margin = margin(0, 0, 0, 0, "pt"))
+gh12 <- ggplot(data = df[df$set == "train", ], aes(x = V1, fill = cat)) +
+  geom_histogram_pattern(alpha = 0.6, position = "identity", pattern = "circle", pattern_fill = "black") +
+  scale_pattern_discrete(guide = "none") +
+  scale_fill_discrete(guide = "none") +
+  scale_y_reverse() +
+  labs(x = "X1") +
+  xlim(x1.lim) +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        plot.margin = margin(0, 0, 0, 0, "pt"))
+gh22 <- ggplot(data = df[df$set == "test", ], aes(y = V2, fill = cat)) +
+  geom_histogram_pattern(alpha = 0.6, position = "identity", pattern = "crosshatch", pattern_density = .0001,
+                         pattern_alpha = .6) +
+  scale_pattern_discrete(guide = "none") +
+  scale_fill_discrete(guide = "none") +
+  ylim(x2.lim) +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.ticks.length.y = unit(0, "pt"),
+        plot.margin = margin(0, 0, 0, 0, "pt"))
 
 layout <- "
-ABBB
-ABBB
-ABBB
-#CCC
+#DDD#
+ACCCB
+ACCCB
+ACCCB
+#EEE#
 "
-gh2 + gp + gh1 +
+gh21 + gh22 + gp + gh11 + gh12 +
   plot_layout(design = layout, guides = "collect")
 ```
 
-```{r}
+\newpage
+
+2.
+
+L'algorithme des $k$-ppv est très simple à mettre en place : chaque nouvelle observation non labellisée est classée dans la catégorie majoritaire de ses $k$ plus proches voisins labellisés. En théorie, si le nombre d'observations et de voisins sont suffisamment grands et que le nombre d'observations est très grand par rapport au voisinage considéré, ce classifieur est optimal. Mais en pratique, le nombre d'observations étant fini, les $k$-ppv n'est pas forcément optimal et le choix du voisinage influ sur la performance de l'algorithme.
+
+Nous avons observé cet impact sur la classification des données de test par les $k$-ppv en considérant $k \in \{1, 3, 5, 7, 9, 11\}$. La table \@ref(tab:tab-4-ppv) présente les résultats obtenus. Nous pouvons voir qu'en effet le taux de bonne classification fluctue selon $k$, mais que pour un voisinage de $1$ mis à part cette variation est assez faible.
+
+```{r 4.2}
 K <- c(1, 3, 5, 7, 9, 11)
 rate <- sapply(K, function (k) {
   pred.test <- knn(X.train, X.test, y.train, k)
@@ -616,40 +686,87 @@ rate <- sapply(K, function (k) {
 })
 ```
 
-```{r}
+```{r tab-4-ppv}
+knn.df <- t(data.frame(k = as.character(as.integer(K)), rate = rate))
+rownames(knn.df) <- c("k", "taux")
+kable(knn.df, caption = "Taux de bonne classification par k-ppv pour différents k",
+      label="tab-4-ppv") %>%
+  kable_styling(latex_options = "HOLD_position")
+```
+
+3.
+
+L'un des problèmes souvent rencontré en apprentissage statistique est le sur-apprentissage, c'est-à-dire l'extraction par le modèle d'informations trop spécifiques aux données d'apprentissage et absentes des données de test. \newline
+Il existe de nombreuses approches pour limiter le sur-apprentissage, dont le "bagging" qui, appliqué au $k$-ppv, consiste à :
+
+```{=latex}
+\begin{enumerate}
+    \item répéter $B$ fois :
+    \begin{enumerate}
+        \item tirer avec remise un $n$-échantillon d'observations labellisées,
+        \item classer les observations non-labellisées à partir de ce $n$-échantillon.
+    \end{enumerate}
+    \item classer finalement les observations non-labellisées en choississant la classe majoritaire parmis les $B$ classifications obtenues précédemment.
+\end{enumerate}
+```
+
+Nous avons employé cette méthode en choisissant $B=100$ sur nos jeux de données. Sur la table \@ref(tab:tab-4-bagging) nous pouvons observer que les résultats obtenus sont au moins meilleurs avec bagging, à l'exception de $k=7$. Cependant, il est plutôt inattendu de constater que ce sont pour les plus faibles valeurs de $k$ que l'apport du bagging est le moins important. En effet, l'algorithme des $k$-ppv est plus instable pour $k$ faible, et nous aurions pu attendre que le bagging le stabilise, mais c'est plutôt l'inverse qui se produit, alors que plus $k$ est élevé, plus $k$-ppv est stable.
+
+```{r 4.3}
 B <- 100
 
-K <- c(1, 3, 5, 7, 9, 11)
-pred.b <- lapply(K, function (k) {
-  replicate(B, {
-      idx <- sample(length(y.train), replace = T)
-      as.numeric(knn(X.train[idx,], X.test, y.train[idx], k)) - 1
+pred.b <- replicate(B, {
+  idx <- sample(length(y.train), replace = T)
+  sapply(K, function (k) {
+    as.numeric(knn(X.train[idx,], X.test, y.train[idx], k)) - 1
   })
 })
-rate.b <- sapply(pred.b, function (p) {
+rate.b <- apply(pred.b, 2, function (p) {
   p.maj <- as.numeric(apply(p, 1, mean) >= .5 )
   mean(p.maj == y.test)
 })
-rate.ind <- do.call(cbind, lapply(pred.b, function (p) {
+rate.ind <- apply(pred.b, 2, function (p) {
   apply(p == y.test, 2, mean)
-}))
+})
 ```
 
-```{r}
+```{r tab-4-bagging}
+bagging.df <- t(data.frame(k = as.character(as.integer(K)), rate = rate.b))
+rownames(bagging.df) <- c("k", "taux")
+kable(bagging.df, caption = "Taux de bonne classification par bagging pour différents k",
+      label="tab-4-bagging") %>%
+  kable_styling(latex_options = "HOLD_position")
+```
+
+4.
+
+```{r 4.4}
+```
+
+
+Sur la figure \@ref(fig:plot-4-all) nous avons représenté les taux de bonne classification donnés dans les tables précédentes et, en transparence, nous avons ajouté ceux obtenus par les $B$ classifieurs individuels employés pendant la procédure de bagging. Nous pouvons observer que la variance des taux de bonne classification individuels augmente lorsque $k$ augmente, mais cela ne se fait pas au détriment des performances puisque plus $k$ est grand, plus l'apport du bagging est notable. De plus, il est intéressant de remarquer que la performance du classifieur avec bagging est systématiquement supérieure ou égale à la médiane des performances des classifieurs agrégés.
+
+```{r plot-4-all, fig.cap = "Taux de bonne classification des $k$-ppv, avec (en rouge) et sans (en bleu) bagging"}
 rate.df <- data.frame(knn = rate, bagging = rate.b)
 rate.tbl <- as_tibble(rate.df)
 rate.tbl$K <- K
 rate.tbl <- rate.tbl %>% pivot_longer(!K, names_to = "method", values_to = "rate")
+rate.tbl$K <- factor(rate.tbl$K, levels = K)
 
 rate.ind.df <- data.frame(t(rate.ind))
 colnames(rate.ind.df) <- as.factor(1:B)
 rate.ind.tbl <- as_tibble(rate.ind.df)
 rate.ind.tbl$K <- K
 rate.ind.tbl <- rate.ind.tbl %>% pivot_longer(!K, names_to = "B", values_to = "rate")
+rate.ind.tbl$K <- factor(rate.ind.tbl$K, levels = K)
 
 ggplot() +
+  geom_boxplot(data = rate.ind.tbl, aes(x = K, y = rate), width = .25, alpha = 0,
+               color = paste0("#F8766D", toupper(as.hexmode(round(.5*255))))) +
   geom_line(data = rate.ind.tbl, aes(x = K, y = rate, group = B, col = "bagging"), alpha = .1) +
-  geom_line(data = rate.tbl, aes(x = K, y = rate, col = method)) +
+  geom_line(data = rate.tbl, aes(x = K, y = rate, group = method, col = method)) +
+  scale_x_discrete(breaks = K, labels = K) +
   scale_color_discrete(labels = c("bagging", "k-ppv")) +
   labs(x = "k", y = "Taux de bonne classification", col = "Méthode")
 ```
+
