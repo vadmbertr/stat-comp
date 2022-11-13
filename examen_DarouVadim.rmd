@@ -19,6 +19,16 @@ header-includes:
     \usepackage{caption}
     \usepackage{mathtools}
     \usepackage{float}
+    \usepackage{algorithm2e}
+    \usepackage{xcolor}
+    \RestyleAlgo{ruled}
+    \DontPrintSemicolon
+    \SetAlgoLined
+    \SetNoFillComment
+    \LinesNotNumbered
+    \newcommand\mycommfont[1]{\footnotesize\ttfamily\textcolor{lightgray}{#1}}
+    \SetCommentSty{mycommfont}
+    \SetKwFor{RepTimes}{repeat}{times}{end}
     \makeatletter\renewcommand*{\fps@figure}{H}\makeatother
 ---
 
@@ -96,23 +106,30 @@ Ce qui équivaut à vérifier que $g(x)$ est bien une densité.
 
 2.
 
-La méthode d'inversion consiste à simuler un échantillon distribué selon une densité $d$ par le biais du tirage d'un échantillon suivant la loi uniforme $\mathcal{U}[0,1]$, permettant ensuite de revenir à la distribution initialement souhaitée ($d$) via la réciproque de la fonction de répartition de cette densité (fonction quantile).
+L'algorithme \@ref(alg:inv) décrit le fonctionnement de la méthode d'inversion.
 
-Soient $G(x)$ la fonction de répartition de $g(x)$ et $G^{-1}(y)$ sa réciproque. \
-Par définition, nous avons : $G(x)= \int_{-\infty}^{x} g(u) du$ et $(G^{-1} \circ G)(x) = x$.
+\begin{algorithm}[H]
+\caption{Méthode d'inversion pour simuler selon g}\label{alg:inv}
+    \KwData{$Q$ \tcp*{fonction quantile de la densité $g$}}
+    $u \gets U \sim \mathcal{U}[0,1]$\;
+    $x \gets Q(u)$\;
+\end{algorithm}
+
+Soient $G(x)$ la fonction de répartition de $g(x)$ et $Q(y)$ sa réciproque (et donc la fonction quantile de $g$). \
+Par définition, nous avons : $G(x)= \int_{-\infty}^{x} g(u) du$ et $(Q \circ G)(x) = x$.
 
 Le développement \@ref(eq:ex1-2-1) donne l'expression de $G(x)$ pour $x \in \mathbb{R}^+$ et $x \in \mathbb{R}^-$.
 
 \begin{subequations} (\#eq:ex1-2-1)
     \begin{align}
         \begin{split}
-            \forall x \in \mathbb{R}^+, \qquad \qquad G_+(x)
+            \forall x \in \mathbb{R}^+, \qquad \qquad G^+(x)
             & = \frac{1}{2} \left( \int_{-\infty}^0 exp(u) du + \int_0^{x} exp(-u) du \right) \\
             & = \frac{1}{2} \left[ [exp(u)]_{-\infty}^0 + [-exp(-u)]_0^{x} \right] \\
             & = 1 - \frac{1}{2} exp(-x)
         \end{split} \\
         \begin{split}
-            \forall x \in \mathbb{R}^-, \qquad \qquad G_-(x)
+            \forall x \in \mathbb{R}^-, \qquad \qquad G^-(x)
             & = \frac{1}{2} \int_{-\infty}^x exp(u) du \\
             & = \frac{1}{2} [exp(u)]_{-\infty}^x \\
             & = \frac{1}{2} exp(x)
@@ -120,21 +137,21 @@ Le développement \@ref(eq:ex1-2-1) donne l'expression de $G(x)$ pour $x \in \ma
     \end{align}
 \end{subequations}
 
-L'expression des réciproques de $G_+$ et $G_-$ est obtenu via le développement \@ref(eq:ex1-2-2).
+L'expression des réciproques de $G^+$ et $G^-$ est obtenu via le développement \@ref(eq:ex1-2-2).
 
 \begin{subequations} (\#eq:ex1-2-2)
     \begin{align}
         \begin{split}
-            & G_+(x) = 1 - \frac{1}{2} exp(-x) \\
-            \Leftrightarrow & \: exp(-x) = 2(1-G_+(x)) \\
-            \Leftrightarrow & \: x = -ln(2(1-G_+(x))) \\
-            \Rightarrow & \qquad \forall y \in [0.5, 1], \qquad G_+^{-1}(y) = -ln(2(1-y))
+            \forall x \in \mathbb{R}^+, \qquad \qquad & G^+(x) = 1 - \frac{1}{2} exp(-x) \\
+            \Leftrightarrow & \: exp(-x) = 2(1-G^+(x)) \\
+            \Leftrightarrow & \: x = -ln(2(1-G^+(x))) \\
+            \Rightarrow \forall y \in [0.5, 1], \qquad \qquad & Q^+(y) = -ln(2(1-y))
         \end{split} \\
         \begin{split}
-            & G_-(x) = \frac{1}{2} exp(x) \\
-            \Leftrightarrow & \: exp(x) = 2G_-(x) \\
-            \Leftrightarrow & \: x = ln(2G_-(x)) \\
-            \Rightarrow & \qquad \forall y \in [0, 0.5], \qquad G_-^{-1}(y) = ln(2y)
+            \forall x \in \mathbb{R}^+, \qquad \qquad & G^-(x) = \frac{1}{2} exp(x) \\
+            \Leftrightarrow & \: exp(x) = 2G^-(x) \\
+            \Leftrightarrow & \: x = ln(2G^-(x)) \\
+            \Rightarrow \forall y \in [0, 0.5], \qquad \qquad & Q^-(y) = ln(2y)
         \end{split}
     \end{align}
 \end{subequations}
@@ -145,11 +162,7 @@ Munis de ces expressions, nous pouvons implémenter en **R** la fonction de tira
 rg <- function (n) { # retourne les réalisations de g
   Un <- runif(n, min = 0, max = 1) # tirage selon la loi U[0,1]
   Gn <- sapply(Un, function (u) { # tirage selon g via sa fonction quantile
-    if (u > 0.5) {
-      -log(2*(1-u))
-    } else {
-      log(2*u)
-    }
+    if (u > 0.5) -log(2*(1-u)) else log(2*u)
   })
 }
 ```
@@ -201,27 +214,56 @@ Cette observation graphique est retrouvée par le calcul selon le développement
         \begin{split}
             \forall x \in \mathbb{R}^+, \qquad \qquad & \frac{f(x)}{g(x)} =
                                         \sqrt{\frac{2}{\pi}}exp(\frac{-x^2}{2}+x)
-                                        \stackrel{\text{not}}{=} M_+(x) \\
-            \Rightarrow \: & M_+^{'}(x) = \sqrt{\frac{2}{\pi}}exp(\frac{-x^2}{2}+x)(-x+1) \\
-            donc, \: & M_+^{'}(x) = 0 \\
+                                        \stackrel{\text{not}}{=} M^+(x) \\
+            \Rightarrow \: & M^{+'}(x) = \sqrt{\frac{2}{\pi}}exp(\frac{-x^2}{2}+x)(-x+1) \\
+            donc, \: & M^{+'}(x) = 0 \\
             \Leftrightarrow \: & x = 1 \\
-            \Rightarrow \: & \min_{x \in \mathbb{R}^+} M_+(x) = M_+(1) = \sqrt{\frac{2e}{\pi}}
+            d'où, \: & \min_{x \in \mathbb{R}^+} M^+(x) = M^+(1) = \sqrt{\frac{2e}{\pi}}
         \end{split} \\
         \begin{split}
             \forall x \in \mathbb{R}^-, \qquad \qquad & \frac{f(x)}{g(x)} =
                                         \sqrt{\frac{2}{\pi}}exp(\frac{-x^2}{2}-x)
-                                        \stackrel{\text{not}}{=} M_-(x) \\
-            \Rightarrow \: & M_-^{'}(x) = \sqrt{\frac{2}{\pi}}exp(\frac{-x^2}{2}-x)(-x-1) \\
-            donc, \: & M_-^{'}(x) = 0 \\
+                                        \stackrel{\text{not}}{=} M^-(x) \\
+            \Rightarrow \: & M^{-'}(x) = \sqrt{\frac{2}{\pi}}exp(\frac{-x^2}{2}-x)(-x-1) \\
+            donc, \: & M^{-'}(x) = 0 \\
             \Leftrightarrow \: & x = -1 \\
-            \Rightarrow \: & \min_{x \in \mathbb{R}^-} M_-(x) = M_-(-1) = \sqrt{\frac{2e}{\pi}}
+            d'où, \: & \min_{x \in \mathbb{R}^-} M^-(x) = M^-(-1) = \sqrt{\frac{2e}{\pi}}
         \end{split}
     \end{align}
 \end{subequations}
 
 5.
 
-Nous avons donc implémenté la procédure de rejet suivante en utilisant la densité $g$ et le majorant $M$ obtenus précédemment :
+L'idée générale de la procédure de rejet est donnée par l'algorithme \@ref(alg:rejet) et partiellement illustrée sur la figure \@ref(fig:plot-1-rej).
+
+\begin{algorithm}[H]
+\caption{Méthode de rejet pour simuler selon f}\label{alg:rejet}
+    \KwData{$N=1000$ \tcp*{taille du $n-$échantillon simulé selon $f$}}
+    \KwData{$M=\sqrt{\frac{2e}{\pi}}$ \tcp*{plus petit majorant tel que $f \leq M*g$}}
+    \KwData{$g$ \tcp*{densité}}
+    $X \gets \emptyset$\;
+    $r \gets 0$\;
+    \While{$\lvert X \rvert < N$}{
+        $x_0 \gets G \sim g$ \tcp*{voir algorithme \ref{alg:inv}}
+        $u_0 \gets U \sim \mathcal{U}[0, M*g(x_0)]$ \tcp*{entre l'axe des abscisses et la courbe bleu de la figure \ref{fig:plot-1-rej}}
+        \eIf(\tcp*[f]{entre l'axe des abscisses et la courbe noire de la figure \ref{fig:plot-1-rej}}){$u_0 \leq f(x_0)$}{
+            $X \gets X \cup \{x_0\}$\;
+        }{
+            $r \gets r + 1$\;
+        }
+    }
+\end{algorithm}
+
+```{r plot-1-rej, fig.cap = "Illustration graphique de la procédure de rejet"}
+ggplot() +
+  xlim(-5, 5) +
+  geom_function(fun = function (x) {g(x) * M}, aes(color = "M*g(x)")) +
+  geom_function(fun = dnorm, aes(color = "f(x)")) +
+  labs(x = "x", y = "y", color = "") +
+  scale_color_manual(values = c("f(x)" = "black", "M*g(x)" = "blue"))
+```
+
+Nous avons implémenté cette procédure en **R** via la densité $g$ et le majorant $M$ obtenus précédemment :
 
 ```{r, 1.5, echo = T}
 rf <- function (n) { # retourne les réalisations de f et le taux de rejet
@@ -236,25 +278,6 @@ rf <- function (n) { # retourne les réalisations de f et le taux de rejet
   }
   list(Xn = Xn, rate = rejected/(rejected+n))
 }
-```
-
-L'idée générale est de répéter $M$ fois :
-
-```{=latex}
-\begin{enumerate}
-    \item tirer une réalisation $x_0$ selon $g$,
-    \item tirer une réalisation $u_0$ selon la loi $\mathcal{U}([0, M*g(x_0)])$ (entre l'axe des abscisses et la courbe bleu de la figure \ref{fig:plot-1-rej}),
-    \item conserver $x_0$ si $u_0 \leq f(x_0)$ (entre l'axe des abscisses et la courbe noire de la figure \ref{fig:plot-1-rej}).
-\end{enumerate}
-```
-
-```{r plot-1-rej, fig.cap = "Illustration graphique de la procédure de rejet"}
-ggplot() +
-  xlim(-5, 5) +
-  geom_function(fun = function (x) {g(x) * M}, aes(color = "M*g(x)")) +
-  geom_function(fun = dnorm, aes(color = "f(x)")) +
-  labs(x = "x", y = "y", color = "") +
-  scale_color_manual(values = c("f(x)" = "black", "M*g(x)" = "blue"))
 ```
 
 ```{r}
@@ -276,7 +299,7 @@ ggplot(data.frame(x = rf.res$Xn), aes(x)) +
 Le taux de rejet est égale au rapport entre le nombre de tirages rejetés par notre procédure de rejet et le nombre de tirages réalisés total. Au plus ce taux est faible, au plus notre générateur est computationnellement performant.
 
 Nous obtenons un taux de rejet de `r round(rf.res$rate, 2)`, autrement dit : pour 4 tirages, nous en rejetons 1 et nous en acceptons 3. Au premier abord, ce taux peut paraitre étonnamment élevé étant donné que sur la figure \@ref(fig:plot-1-rej), la fonction $Mg(x)$ semble assez proche de $f(x)$. Cependant, il faut aussi noter que l'écart entre $Mg(x)$ et $f(x)$ est le plus important pour les valeurs les plus probables de la densité $f$. \newline
-Par ailleurs, si nous nous intéressons aux aires sous les courbes de $f(x)$ et $Mg(x)$ ce taux était même prévisible. Nous savons que $\int_{-\infty}^{+\infty} f(x) dx = \int_{-\infty}^{+\infty} g(x) dx = 1$, donc la "probabilité" (entre guillemets, car ce n'est pas formel) d'accepter un tirage est $\frac{\int_{-\infty}^{+\infty} f(x) dx}{\int_{-\infty}^{+\infty} Mg(x) dx} = \frac{1}{M} \simeq 0.76$ et celle de le rejeter est $1 - \frac{1}{M} \simeq 0.24$ : nous retrouvons le taux de rejet.
+Par ailleurs, si nous nous intéressons aux aires sous les courbes de $f(x)$ et $Mg(x)$ ce taux était même prévisible. Nous savons que $\int_{-\infty}^{+\infty} f(x) dx = \int_{-\infty}^{+\infty} g(x) dx = 1$, donc la "probabilité" (entre guillemets, car ce n'est pas formel) d'accepter un tirage est $\frac{\int_{-\infty}^{+\infty} f(x) dx}{\int_{-\infty}^{+\infty} Mg(x) dx} = \frac{1}{M} \simeq 0.76$ et celle de le rejeter est $1 - \frac{1}{M} \simeq 0.24$, ce qui est proche du taux de rejet obtenu empiriquement.
 
 Si nous souhaitions diminuer le taux de rejet, nous pourrions envisager de :
 
@@ -296,7 +319,7 @@ P0 <- c(0.8, 0.85, 0.9, 0.92, 0.93)
 N <- seq(50, 500, by = 50)
 ```
 
-Dans cet exercice, nous souhaitons nous assurer qu'un taux de bonne classification de $0.95$ obtenu par validation-croisée est conservé en confrontant le modèle à de nouvelles données, non utilisées pour son entrainement. Plus précisément, nous souhaitons invalider l'hypothèse que le score de validation est égal à certaines valeurs seuil : ${0.8, 0.85, 0.9, 0.92, 0.93}$. \newline
+Dans cet exercice, nous souhaitons nous assurer qu'un taux de bonne classification de $0.95$ obtenu par validation-croisée est conservé en confrontant le modèle à de nouvelles données, non utilisées pour son entrainement. Plus précisément, nous souhaitons invalider l'hypothèse que le score de validation est égal à certaines valeurs seuil : $\{0.8, 0.85, 0.9, 0.92, 0.93\}$. \newline
 Pour cela il est possible de réaliser des tests statistiques comparant les résultats obtenus sur un nouveau jeu de validation aux différents seuils. Sous l'hypothèse de nulle de ces tests, le taux de validation est supposé égal à $p_0 \in \{0.8, 0.85, 0.9, 0.92, 0.93\}$, l'hypothèse alternative étant qu'il vaut $p_1 = 0.95$. \newline
 Sous l'hypothèse nulle, nous savons que :
 $$\frac{\bar{X_n} - p_0}{\sqrt{\frac{p_0(1-p_0)}{n}}} \sim \mathcal{N}(0,1)$$
@@ -311,28 +334,32 @@ ggplot() +
   labs(x = "x", y = "Densité")
 ```
 
-Afin d'avoir une confiance suffisante dans les résultats des tests nous aimerions connaître leur puissance statistique (c'est à dire la probabilité de rejeter à raison l'hypothèse nulle, et donc d'accepter un taux de bonne classification de $0.95$) en fonction de la taille de l'échantillon de validation. \newline
-Cette démarche peut être réalisée par une approche Monte Carlo :
+Afin d'avoir une confiance suffisante dans les résultats des tests, nous aimerions connaître leur puissance statistique (c'est à dire la probabilité de rejeter à raison l'hypothèse nulle, et donc d'accepter un taux de bonne classification de $0.95$) en fonction de la taille de l'échantillon de validation. \newline
+Cette démarche a été réalisée par l'approche Monte Carlo décrite par l'algorithme \@ref(alg:puis-mc).
 
-```{=latex}
-\begin{enumerate}
-    \item répéter $M$ fois :
-    \begin{enumerate}
-        \item générer un $n$-échantillon représentant le succès ou non de la classification selon une loi $\mathcal{B}(n, p_1)$, où $p_1=0.95$ est le taux de bonne classification observé par validation croisée,
-        \item calculer le taux empirique de bonne classification (sa moyenne empirique $\bar{X_n}$),
-        \item comparer la statistique de test calculée avec $\bar{X_n}$ au seuil de rejet au niveau $\alpha=0.05$ pour décider du rejet ou non du test.
-    \end{enumerate}
-    \item calculer la puissance estimée étant alors le nombre de tests rejetés (à raison), divisé par $M$.
-\end{enumerate}
-```
-
-Nous avons réalisé cette procédure en faisant varier la taille du jeu de validation $n \in [50, 500]$ par pas de $50$.
+\begin{algorithm}[H]
+\caption{Méthode Monte Carlo pour estimer la puissance d'un test}\label{alg:puis-mc}
+    \KwData{$M=10000$ \tcp*{nombre de répétitions}}
+    \KwData{$p_0 \in \{0.8, 0.85, 0.9, 0.92, 0.93\}$ \tcp*{taux de bonne classification sous $H_0$}}
+    \KwData{$p_1=0.95$ \tcp*{taux de bonne classification sous $H_1$}}
+    \KwData{$n \in [50, 500]$ par pas de $50$ \tcp*{taille du jeu de validation}}
+    \KwData{$\alpha=0.05$ \tcp*{niveau du test}}
+    $r \gets 0$\;
+    \RepTimes{$M$}{
+        $X_n \gets B \sim \mathcal{B}(n, p_1)$ \tcp*{$n$-échantillon représentant le succès ou non de la classification}
+        $d \gets \frac{\bar{X_n} - p_0}{\sqrt{\frac{p_0(1-p_0)}{n}}}$ \tcp*{statistique de test}
+        \If(\tcp*[f]{rejet à raison de $H_0$}){$d > q^{\mathcal{N}}_{1-\alpha}$}{
+            $r \gets r + 1$\;
+        }
+    }
+    $p \gets \frac{r}{M}$ \tcp*{puissance estimée}
+\end{algorithm}
 
 ```{r}
 p.sd <- function (p, n) { # écart-type de p sous H0
   sqrt(p * (1 - p) / n)
 }
-p1.r <- function (m, n) { # génére m taux à partir de n-échantillons sous H1
+p1.r <- function (m, n) { # génère m taux à partir de n-échantillons sous H1
   apply(matrix(data = rbinom(m*n, 1, P1), nrow = m), 1, mean)
 }
 p.T <- function (p, p0, n) { # statistique de test
@@ -354,6 +381,9 @@ mat <- do.call(cbind, lapply(N, function (n) { # pour chaque n
 }))
 ```
 
+La figure \@ref(fig:plot-2-puissances) présente les résultats obtenus. Nous pouvons observer que la puissance du test augmente avec lorsque la taille de l'échantillon de validation augmente. Cela était attendu étant donné que quand $n$ augmente, la statistique de test augmente également. \newline
+Le test permettrait de rejeter l'hypothèse d'un taux de bonne classification égale à $0.8$ avec une puissance de $1$ (donc une certitude de $100\%$) à partir d'un jeu de validation de taille $100$. En revanche, rejeter l'hypothèse d'un taux à $0.93$ avec une grande puissance statistique sera impossible, même avec un jeu de validation de taille $500$. S'il est primordial d'avoir une grande confiance dans le fait que le taux du classifieur est supérieur à $0.93$ il faudra donc beaucoup plus de données. Si un taux de classification à $0.9$ est acceptable, alors choisir un jeu de validation de taille $300$ permettra d'avoir une bonne confiance dans les performances attendues du classifieur, étant donné que la puissance statistique du test est alors supérieur à $0.9$.
+
 ```{r plot-2-puissances, fig.cap = "Evolution de la puissance du test selon la taille de l'échantillon, pour différentes valeurs de $p_0$"}
 df <- data.frame(data = mat, row.names = P0)
 colnames(df) <- N
@@ -366,9 +396,6 @@ ggplot(data = tbl) +
   geom_line(aes(x = N, y = pow, color = P0)) +
   labs(x = "Taille de l'échantillon", y = "Puissance du test", color = "p0")
 ```
-
-La figure \@ref(fig:plot-2-puissances) présente les résultats obtenus. Nous pouvons observer que la puissance du test augmente avec lorsque la taille de l'échantillon de validation augmente. Cela était attendu étant donné que quand $n$ augmente, la statistique de test augmente également. \newline
-Le test permettrait de rejeter l'hypothèse d'un taux de bonne classification égale à $0.8$ avec une puissance de $1$ (donc une certitude de $100\%$) à partir d'un jeu de validation de taille $100$. En revanche, rejeter l'hypothèse d'un taux à $0.93$ avec une grande puissance statistique sera impossible, même avec un jeu de validation de taille $500$. S'il est primordial d'avoir une grande confiance dans le fait que le taux du classifieur est supérieur à $0.93$ il faudra donc beaucoup plus de données. Si un taux de classification à $0.9$ est acceptable, alors choisir un jeu de validation de taille $300$ permettra d'avoir une bonne confiance dans les performances attendues du classifieur, étant donné que la puissance statistique du test est alors supérieur à $0.9$.
 
 \newpage
 
@@ -426,18 +453,24 @@ La figure \@ref(fig:plot-3-roc) présentant les courbes ROC des deux classifieur
 
 3.
 
-Il existe deux procédures bootstrap pour calculer un intervalle de confiance, la méthode des percentiles et celle du pivot. L'approche par les percentiles est la plus intuitive et consiste, pour un intervalle à $95\%$ et dans le cas de l'AUC, à :
+Il existe deux procédures bootstrap pour calculer un intervalle de confiance, la méthode des percentiles et celle du pivot. L'approche par les percentiles est la plus intuitive et est énoncée, pour un intervalle à $95\%$ et dans le cas de l'AUC, par l'algorithme \@ref(alg:perc).
 
-```{=latex}
-\begin{enumerate}
-    \item répéter $P$ fois :
-    \begin{enumerate}
-        \item tirer avec remise un $n$-échantillon de scores parmis les cas positifs et un $n$-échantillon parmis les cas négatifs,
-        \item calculer l'AUC à partir de ces deux tirages.
-    \end{enumerate}
-    \item calculer les percentiles $\frac{1-95\%}{2}$ et $1-\frac{1-95\%}{2}$ des $P$ AUC obtenus.
-\end{enumerate}
-```
+\begin{algorithm}[H]
+\caption{Estimation d'un intervalle de confiance par la méthode des percentiles}\label{alg:perc}
+    \KwData{$B=1000$ \tcp*{nombre de répétitions}}
+    \KwData{$P_n$ \tcp*{scores des cas positifs}}
+    \KwData{$N_n$ \tcp*{scores des cas négatifs}}
+    \KwData{$sample(échantillon)$ \tcp*{réalise un tirage avec remise parmi l'échantillon}}
+    \KwData{$auc(positifs,\ négatifs)$ \tcp*{retourne l'AUC selon les scores des cas positifs et négatifs}}
+    \KwData{$perc(X,\ p)$ \tcp*{retourne le p-ème percentile de l'échantillon $X$}}
+    $AUC \gets \emptyset$\;
+    \RepTimes{$B$}{
+        $P_B \gets sample(P_n)$\;
+        $N_B \gets sample(N_n)$\;
+        $AUC \gets AUC \cup \{auc(P_B,\ N_B)\}$
+    }
+    $(perc(AUC,\ \frac{1-0.95}{2}), perc(AUC,\ 1-\frac{1-0.95}{2}))$ \tcp*{intervalle de confiance}
+\end{algorithm}
 
 ```{r, 3.3}
 B <- 1000
@@ -676,7 +709,7 @@ gh21 + gh22 + gp + gh11 + gh12 +
 
 L'algorithme des $k$-ppv est très simple à mettre en place : chaque nouvelle observation non labellisée est classée dans la catégorie majoritaire de ses $k$ plus proches voisins labellisés. En théorie, si le nombre d'observations et de voisins sont suffisamment grands et que le nombre d'observations est très grand par rapport au voisinage considéré, ce classifieur est optimal. Mais en pratique, le nombre d'observations étant fini, les $k$-ppv n'est pas forcément optimal et le choix du voisinage influ sur la performance de l'algorithme.
 
-Nous avons observé cet impact sur la classification des données de test par les $k$-ppv en considérant $k \in \{1, 3, 5, 7, 9, 11\}$. La table \@ref(tab:tab-4-ppv) présente les résultats obtenus. Nous pouvons voir qu'en effet le taux de bonne classification fluctue selon $k$, mais que pour un voisinage de $1$ mis à part cette variation est assez faible.
+Nous avons observé cet impact sur la classification des données de test par les $k$-ppv en considérant $k \in \{1, 3, 5, 7, 9, 11\}$. La table \@ref(tab:tab-4-ppv) présente les résultats obtenus. Nous pouvons voir qu'en effet le taux de bonne classification fluctue selon $k$, mais que, pour un voisinage de $1$ mis à part, cette variation est assez faible.
 
 ```{r 4.2}
 K <- c(1, 3, 5, 7, 9, 11)
@@ -696,19 +729,18 @@ kable(knn.df, caption = "Taux de bonne classification par k-ppv pour différents
 
 3.
 
-L'un des problèmes souvent rencontré en apprentissage statistique est le sur-apprentissage, c'est-à-dire l'extraction par le modèle d'informations trop spécifiques aux données d'apprentissage et absentes des données de test. \newline
-Il existe de nombreuses approches pour limiter le sur-apprentissage, dont le "bagging" qui, appliqué au $k$-ppv, consiste à :
+L'un des problèmes souvent rencontrés en apprentissage statistique est le sur-apprentissage, c'est-à-dire l'extraction par le modèle d'informations trop spécifiques aux données d'apprentissage et absentes des données de test. \newline
+Il existe de nombreuses approches pour limiter le sur-apprentissage, dont le "bagging" qui, appliqué aux $k$-ppv, est décrit par l'algorithme \@ref(alg:bag).
 
-```{=latex}
-\begin{enumerate}
-    \item répéter $B$ fois :
-    \begin{enumerate}
-        \item tirer avec remise un $n$-échantillon d'observations labellisées,
-        \item classer les observations non-labellisées à partir de ce $n$-échantillon.
-    \end{enumerate}
-    \item classer finalement les observations non-labellisées en choississant la classe majoritaire parmis les $B$ classifications obtenues précédemment.
-\end{enumerate}
-```
+\begin{algorithm}[H]
+\caption{Application du "bagging" aux $k$-ppv}\label{alg:bag}
+    \KwData{$B=100$ \tcp*{nombre de répétitions}}
+    \RepTimes{$B$}{
+        tirer avec remise un $n$-échantillon parmi les observations labellisées\;
+        classer par les $k$-ppv les observations non-labellisées à partir de ce $n$-échantillon\;
+    }
+    classer les observations non-labellisées selon la classe majoritaire parmi les $B$ classifications précédentes\;
+\end{algorithm}
 
 Nous avons employé cette méthode en choisissant $B=100$ sur nos jeux de données. Sur la table \@ref(tab:tab-4-bagging) nous pouvons observer que les résultats obtenus sont au moins meilleurs avec bagging, à l'exception de $k=7$. Cependant, il est plutôt inattendu de constater que ce sont pour les plus faibles valeurs de $k$ que l'apport du bagging est le moins important. En effet, l'algorithme des $k$-ppv est plus instable pour $k$ faible, et nous aurions pu attendre que le bagging le stabilise, mais c'est plutôt l'inverse qui se produit, alors que plus $k$ est élevé, plus $k$-ppv est stable.
 
@@ -743,7 +775,6 @@ kable(bagging.df, caption = "Taux de bonne classification par bagging pour diff�
 ```{r 4.4}
 ```
 
-
 Sur la figure \@ref(fig:plot-4-all) nous avons représenté les taux de bonne classification donnés dans les tables précédentes et, en transparence, nous avons ajouté ceux obtenus par les $B$ classifieurs individuels employés pendant la procédure de bagging. Nous pouvons observer que la variance des taux de bonne classification individuels augmente lorsque $k$ augmente, mais cela ne se fait pas au détriment des performances puisque plus $k$ est grand, plus l'apport du bagging est notable. De plus, il est intéressant de remarquer que la performance du classifieur avec bagging est systématiquement supérieure ou égale à la médiane des performances des classifieurs agrégés.
 
 ```{r plot-4-all, fig.cap = "Taux de bonne classification des $k$-ppv, avec (en rouge) et sans (en bleu) bagging"}
@@ -769,4 +800,3 @@ ggplot() +
   scale_color_discrete(labels = c("bagging", "k-ppv")) +
   labs(x = "k", y = "Taux de bonne classification", col = "Méthode")
 ```
-
