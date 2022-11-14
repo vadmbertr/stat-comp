@@ -9,8 +9,10 @@ output:
   bookdown::pdf_document2: default
   toc: true
   toc_depth: 3
-  number_section: true
   highlight: tango
+  citation_package: biblatex
+bibliography: examen.bib
+csl: examen.csl
 toc-title: "Sommaire"
 editor_options:
   markdown:
@@ -109,13 +111,13 @@ Ce qui équivaut à vérifier que $g(x)$ est bien une densité.
 L'algorithme \@ref(alg:inv) décrit le fonctionnement de la méthode d'inversion.
 
 \begin{algorithm}[H]
-\caption{Méthode d'inversion pour simuler selon g}\label{alg:inv}
+\caption{Méthode d'inversion pour simuler selon une densité $g$}\label{alg:inv}
     \KwData{$Q$ \tcp*{fonction quantile de la densité $g$}}
-    $u \gets U \sim \mathcal{U}[0,1]$\;
+    $u \gets U \sim \mathcal{U}[0,1]$ \tcp*{tirage selon la loi uniforme [0, 1]}
     $x \gets Q(u)$\;
 \end{algorithm}
 
-Soient $G(x)$ la fonction de répartition de $g(x)$ et $Q(y)$ sa réciproque (et donc la fonction quantile de $g$). \
+Nous avons donc besoin de la fonction quantile $Q(y)$ de la densité $g$. Celle-ci est la réciproque de la fonction de répartition $G(x)$ de $g$. \
 Par définition, nous avons : $G(x)= \int_{-\infty}^{x} g(u) du$ et $(Q \circ G)(x) = x$.
 
 Le développement \@ref(eq:ex1-2-1) donne l'expression de $G(x)$ pour $x \in \mathbb{R}^+$ et $x \in \mathbb{R}^-$.
@@ -156,9 +158,9 @@ L'expression des réciproques de $G^+$ et $G^-$ est obtenu via le développement
     \end{align}
 \end{subequations}
 
-Munis de ces expressions, nous pouvons implémenter en **R** la fonction de tirage suivante :
+Munis de ces expressions, nous pouvons implémenter la procédure d'inversion en **R** selon l'algorithme \@ref(alg:inv).
 
-```{r, 1.2, echo = T}
+```{r, 1.2}
 rg <- function (n) { # retourne les réalisations de g
   Un <- runif(n, min = 0, max = 1) # tirage selon la loi U[0,1]
   Gn <- sapply(Un, function (u) { # tirage selon g via sa fonction quantile
@@ -166,8 +168,6 @@ rg <- function (n) { # retourne les réalisations de g
   })
 }
 ```
-
-\newpage
 
 3.
 
@@ -263,9 +263,9 @@ ggplot() +
   scale_color_manual(values = c("f(x)" = "black", "M*g(x)" = "blue"))
 ```
 
-Nous avons implémenté cette procédure en **R** via la densité $g$ et le majorant $M$ obtenus précédemment :
+Nous avons implémenté cette procédure en **R** via la densité $g$ et le majorant $M$ obtenus précédemment.
 
-```{r, 1.5, echo = T}
+```{r, 1.5}
 rf <- function (n) { # retourne les réalisations de f et le taux de rejet
   Xn <- NULL
   rejected <- 0
@@ -295,6 +295,8 @@ ggplot(data.frame(x = rf.res$Xn), aes(x)) +
   scale_color_manual(values = c("f(x)" = "black", "f_hat" = "blue"),
                      labels = unname(TeX(c("f(x)", "$\\hat{f}$"))))
 ```
+
+\newpage
 
 Le taux de rejet est égale au rapport entre le nombre de tirages rejetés par notre procédure de rejet et le nombre de tirages réalisés total. Au plus ce taux est faible, au plus notre générateur est computationnellement performant.
 
@@ -567,7 +569,7 @@ Par ailleurs, les boîtes à moustaches laissent penser que la médiane des perf
 
 4.
 
-Afin de déterminer si l'un des deux classifieurs est statistiquement plus performant que l'autre, nous pouvons réaliser un test d'égalité de deux AUC via une procédure de permutation en suivant démarche indiquée par l'algorithme \@ref(alg:perm).
+Afin de déterminer si l'un des deux classifieurs est statistiquement plus performant que l'autre, nous pouvons réaliser un test d'égalité des deux AUC, sous l'hypothèse nulle qu'ils sont égaux et en prenant l'hypothèse alternative qu'ils sont différents. Une procédure de permutation implémentant ce test est indiquée par l'algorithme \@ref(alg:perm).
 
 \begin{algorithm}[H]
 \caption{Réalisation d'un test d'égalité par permutation}\label{alg:perm}
@@ -613,7 +615,7 @@ p.val.perm <- mean(auc.diff.perm >= s0)
 p.val.boot <- roc.test(roc.1, roc.2, method = "bootstrap")$p.value
 ```
 
-La table \@ref(tab:auc-test) donne les résultats obtenus via notre procédure de test et la procédure de test par bootstrap proposé par la fonction **roc.test** du package **pROC**. Nous pouvons observer que la $p$-valeur obtenue par notre procédure par permutation est égale à 0 et permet donc de rejeter l'hypothèse nulle d'égalité des AUC quel que soit le niveau de significativité souhaité. La procédure bootstrap du package **pROC** permet elle de rejeter cette hypothèse à un niveau de significativité de "seulement" $0.05$. Ces résultats viennent confirmer l'observation faite sur l'intersection non vide des intervalles de confiance obtenus par bootstrap représentés sur la figure \@ref(fig:plot-3-confint) et nous poussent à conclure à la performance supérieure du classifieur 2 sur le 1.
+La table \@ref(tab:auc-test) donne les résultats obtenus via notre procédure de test et la procédure de test par bootstrap proposé par la fonction **roc.test** du package **pROC**. Nous pouvons observer que la $p$-valeur obtenue par notre procédure par permutation est égale à 0 et permet donc de rejeter l'hypothèse nulle d'égalité des AUC quel que soit le niveau de significativité souhaité. La procédure bootstrap du package **pROC** permet elle de rejeter cette hypothèse à un niveau de significativité de "seulement" $0.05$. Ces résultats viennent contredire l'observation faite sur l'intersection non vide des intervalles de confiance obtenus par bootstrap représentés sur la figure \@ref(fig:plot-3-confint) et nous poussent plutôt à conclure à la performance supérieure du classifieur 2 sur le 1.
 
 ```{r auc-test}
 auc.test.df <- data.frame(permutation = p.val.perm, bootstrap = p.val.boot)
@@ -807,7 +809,8 @@ kable(bagging.df, caption = "Taux de bonne classification par bagging pour diff�
 ```{r 4.4}
 ```
 
-Sur la figure \@ref(fig:plot-4-all) nous avons représenté les taux de bonne classification donnés dans les tables précédentes et, en transparence, nous avons ajouté ceux obtenus par les $B$ classifieurs individuels employés pendant la procédure de bagging. Nous pouvons observer que la variance des taux de bonne classification individuels augmente lorsque $k$ augmente, mais cela ne se fait pas au détriment des performances générales de la procédure de bagging.
+Sur la figure \@ref(fig:plot-4-all) nous avons représenté les taux de bonne classification donnés dans les tables précédentes et, en transparence, nous avons ajouté ceux obtenus par les $B$ classifieurs individuels employés pendant la procédure de bagging. Cette figure, ainsi que les résultats présentés auparavant, nous laissent à penser que l'utilité de la procédure de bagging pour les $k$-ppv est très limitée. \newline
+Breiman, dans son article introduisant l'algorithme de bagging [@bagging], indique que celui-ci est intéressant pour les méthodes d'apprentissage susceptibles de donner des résultats différents lorsque l'ensemble d'apprentissage change (méthodes instables) mais que si les résultats varient peu quand le jeu d'entrainement est modifié (méthodes stables) alors son intérêt est nettement moins important. Par ailleurs, dans un autre de ces articles s'intéressant à l'instabilité des modèles [@instability], Breiman considère l'algorithme des $k$-ppv comme stable. Cela vient donc renforcer les observations que nous avons faites.
 
 ```{r plot-4-all, fig.cap = "Taux de bonne classification des $k$-ppv, avec (en rouge) et sans (en bleu) bagging"}
 rate.df <- data.frame(knn = rate, bagging = rate.b)
@@ -832,3 +835,7 @@ ggplot() +
   scale_color_discrete(labels = c("bagging", "k-ppv")) +
   labs(x = "k", y = "Taux de bonne classification", col = "Méthode")
 ```
+
+\newpage
+
+# References {.unlisted .unnumbered}
