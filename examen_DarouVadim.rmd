@@ -182,8 +182,8 @@ ggplot(data.frame(x = rg(1000)), aes(x)) +
   geom_density(aes(color = "g_hat")) +
   geom_function(fun = g, aes(color = "g(x)")) +
   labs(x = "x", y = "Densité", color = "") +
-  scale_color_manual(values = c("g(x)" = "black",
-                                "g_hat" = "blue"))
+  scale_color_manual(values = c("g(x)" = "black", "g_hat" = "blue"),
+                     labels = unname(TeX(c("g(x)", "$\\hat{g}$"))))
 ```
 
 4.
@@ -292,8 +292,8 @@ ggplot(data.frame(x = rf.res$Xn), aes(x)) +
   geom_density(aes(color = "f_hat")) +
   geom_function(fun = dnorm, aes(color = "f(x)")) +
   labs(x = "x", y = "Densité", color = "") +
-  scale_color_manual(values = c("f(x)" = "black",
-                                "f_hat" = "blue"))
+  scale_color_manual(values = c("f(x)" = "black", "f_hat" = "blue"),
+                     labels = unname(TeX(c("f(x)", "$\\hat{f}$"))))
 ```
 
 Le taux de rejet est égale au rapport entre le nombre de tirages rejetés par notre procédure de rejet et le nombre de tirages réalisés total. Au plus ce taux est faible, au plus notre générateur est computationnellement performant.
@@ -420,13 +420,16 @@ roc.2 <- roc(y, prob2, quiet = T)
 ```
 
 ```{r}
-auc <- function (cases, controls) { # calcul exact de l'AUC
-  table <- do.call(rbind, lapply(cases, function (c) {
+auc.comp <- function (cases, controls) {
+  sapply(cases, function (c) {
     row <- as.numeric(controls < c)
     row[controls == c] <- 1/2 # les égalités sont réparties
     row
-  }))
-  mean(table)
+  })
+}
+auc <- function (cases, controls) { # calcul exact de l'AUC
+  comp <- auc.comp(cases, controls)
+  mean(comp)
 }
 
 cases.idx <- which(y == 1)
@@ -453,7 +456,7 @@ La figure \@ref(fig:plot-3-roc) présentant les courbes ROC des deux classifieur
 
 3.
 
-Il existe deux procédures bootstrap pour calculer un intervalle de confiance, la méthode des percentiles et celle du pivot. L'approche par les percentiles est la plus intuitive et est énoncée, pour un intervalle à $95\%$ et dans le cas de l'AUC, par l'algorithme \@ref(alg:perc).
+Nous voulons à présent obtenir des intervalles de confiance pour ces AUC. Il existe deux procédures bootstrap pour calculer un intervalle de confiance, la méthode des percentiles et celle du pivot. L'approche par les percentiles est la plus intuitive et est énoncée, pour un intervalle à $95\%$ et dans le cas de l'AUC, par l'algorithme \@ref(alg:perc).
 
 \begin{algorithm}[H]
 \caption{Estimation d'un intervalle de confiance par la méthode des percentiles}\label{alg:perc}
@@ -469,7 +472,7 @@ Il existe deux procédures bootstrap pour calculer un intervalle de confiance, l
         $N_B \gets sample(N_n)$\;
         $AUC \gets AUC \cup \{auc(P_B,\ N_B)\}$
     }
-    $(perc(AUC,\ \frac{1-0.95}{2}), perc(AUC,\ 1-\frac{1-0.95}{2}))$ \tcp*{intervalle de confiance}
+    $(perc(AUC,\ \frac{0.05}{2}), perc(AUC,\ 1-\frac{0.05}{2}))$ \tcp*{intervalle de confiance}
 \end{algorithm}
 
 ```{r, 3.3}
@@ -564,31 +567,60 @@ Par ailleurs, les boîtes à moustaches laissent penser que la médiane des perf
 
 4.
 
+Afin de déterminer si l'un des deux classifieurs est statistiquement plus performant que l'autre, nous pouvons réaliser un test d'égalité de deux AUC via une procédure de permutation en suivant démarche indiquée par l'algorithme \@ref(alg:perm).
+
+\begin{algorithm}[H]
+\caption{Réalisation d'un test d'égalité par permutation}\label{alg:perm}
+    \KwData{$P=1000$ \tcp*{nombre de répétitions}}
+    \KwData{$comp_1$ \tcp*{comparaisons des scores des cas positifs et négatifs}}
+    \KwData{$comp_2$ \tcp*{comparaisons des scores des cas positifs et négatifs}}
+    \KwData{$sample(M,\ N)$ \tcp*{réalise $N$ tirages sans remise dans $1:M$}}
+    \KwData{$stat(c_1,\ c_2)$ \tcp*{statistique de test: $abs(mean(c_1),\ mean(c_2))$}}
+    $s_0 \gets stat(comp_1,\ comp_2)$\;
+    $comp_Z \gets comp_1 \cup comp_2$\;
+    $s \gets 1$\;
+    \RepTimes{$P$}{
+        $idx \gets sample(\lvert comp_Z \rvert, \lvert comp_1 \rvert)$ \tcp*{tirage sans remise des indices}
+        $comp_X \gets comp_Z[idx]$ \tcp*{retourne les valeurs des indices tirés}
+        $comp_Y \gets comp_Z[-idx]$ \tcp*{retourne les valeurs des indices non tirés}
+        \If(\tcp*[f]{comparaison avec la statistique de test initiale}){$stat(comp_X,\ comp_Y) \geq s_0$}{
+            $s \gets s + 1$\;
+        }
+    }
+    $\frac{s}{P+1}$ \tcp*{$p$-valeur}
+\end{algorithm}
+
 ```{r, 3.4}
 P <- 1000
 
-auc.s <- function (cases1, controls1, cases2, controls2) { # statistique de test
-  auc1 <- auc(cases1, controls1)
-  auc2 <- auc(cases2, controls2)
-  return(abs(auc1 - auc2) / sqrt(auc1 * (1 - auc1) / length(cases1) * length(controls1) +
-                                 auc2 * (1 - auc2) / length(cases2) * length(controls2)))
+auc.s <- function (comp1, comp2) { # statistique de test
+  return(abs(mean(comp1) - mean(comp2)))
 }
 
-s0 <- auc.s(cases.1, controls.1, cases.2, controls.2)
-cases.Z <- c(cases.1, cases.2)
-controls.Z <- c(controls.1, controls.2)
+auc.comp.1 <- sample(as.numeric(auc.comp(cases.1, controls.1))) # comparaisons "brutes" positifs / négatifs
+auc.comp.2 <- sample(as.numeric(auc.comp(cases.2, controls.2)))
+s0 <- auc.s(auc.comp.1, auc.comp.2)
+auc.comp.Z <- c(auc.comp.1, auc.comp.2)
 auc.diff.perm <- replicate(P, {
-  cases.i <- sample(length(cases.Z), length(cases.1))
-  controls.i <- sample(length(controls.Z), length(controls.1))
-  cases.x <- cases.Z[cases.i]
-  cases.y <- cases.Z[-cases.i]
-  controls.x <- controls.Z[controls.i]
-  controls.y <- controls.Z[-controls.i]
-  auc.s(cases.x, controls.x, cases.y, controls.y)
+  auc.comp.i <- sample(length(auc.comp.Z), length(auc.comp.1)) # permutations des comparaisons "brutes"
+  auc.comp.x <- auc.comp.Z[auc.comp.i]
+  auc.comp.y <- auc.comp.Z[-auc.comp.i]
+  auc.s(auc.comp.x, auc.comp.y)
 })
 
 auc.diff.perm <- c(auc.diff.perm, s0)
 p.val.perm <- mean(auc.diff.perm >= s0)
+p.val.boot <- roc.test(roc.1, roc.2, method = "bootstrap")$p.value
+```
+
+La table \@ref(tab:auc-test) donne les résultats obtenus via notre procédure de test et la procédure de test par bootstrap proposé par la fonction **roc.test** du package **pROC**. Nous pouvons observer que la $p$-valeur obtenue par notre procédure par permutation est égale à 0 et permet donc de rejeter l'hypothèse nulle d'égalité des AUC quel que soit le niveau de significativité souhaité. La procédure bootstrap du package **pROC** permet elle de rejeter cette hypothèse à un niveau de significativité de "seulement" $0.05$. Ces résultats viennent confirmer l'observation faite sur l'intersection non vide des intervalles de confiance obtenus par bootstrap représentés sur la figure \@ref(fig:plot-3-confint) et nous poussent à conclure à la performance supérieure du classifieur 2 sur le 1.
+
+```{r auc-test}
+auc.test.df <- data.frame(permutation = p.val.perm, bootstrap = p.val.boot)
+rownames(auc.test.df) <- "p-valeur"
+kable(auc.test.df, caption = "p-valeurs des tests d'égalité des AUC",
+      label="auc-test") %>%
+  kable_styling(latex_options = "HOLD_position")
 ```
 
 \newpage
@@ -742,7 +774,7 @@ Il existe de nombreuses approches pour limiter le sur-apprentissage, dont le "ba
     classer les observations non-labellisées selon la classe majoritaire parmi les $B$ classifications précédentes\;
 \end{algorithm}
 
-Nous avons employé cette méthode en choisissant $B=100$ sur nos jeux de données. Sur la table \@ref(tab:tab-4-bagging) nous pouvons observer que les résultats obtenus sont au moins meilleurs avec bagging, à l'exception de $k=7$. Cependant, il est plutôt inattendu de constater que ce sont pour les plus faibles valeurs de $k$ que l'apport du bagging est le moins important. En effet, l'algorithme des $k$-ppv est plus instable pour $k$ faible, et nous aurions pu attendre que le bagging le stabilise, mais c'est plutôt l'inverse qui se produit, alors que plus $k$ est élevé, plus $k$-ppv est stable.
+Nous avons employé cette méthode en choisissant $B=100$ sur nos jeux de données. Sur la table \@ref(tab:tab-4-bagging) nous pouvons observer que les résultats obtenus ne sont pas réellement différents de ceux de l'algorithme classique des $k$-ppv.
 
 ```{r 4.3}
 B <- 100
@@ -775,7 +807,7 @@ kable(bagging.df, caption = "Taux de bonne classification par bagging pour diff�
 ```{r 4.4}
 ```
 
-Sur la figure \@ref(fig:plot-4-all) nous avons représenté les taux de bonne classification donnés dans les tables précédentes et, en transparence, nous avons ajouté ceux obtenus par les $B$ classifieurs individuels employés pendant la procédure de bagging. Nous pouvons observer que la variance des taux de bonne classification individuels augmente lorsque $k$ augmente, mais cela ne se fait pas au détriment des performances puisque plus $k$ est grand, plus l'apport du bagging est notable. De plus, il est intéressant de remarquer que la performance du classifieur avec bagging est systématiquement supérieure ou égale à la médiane des performances des classifieurs agrégés.
+Sur la figure \@ref(fig:plot-4-all) nous avons représenté les taux de bonne classification donnés dans les tables précédentes et, en transparence, nous avons ajouté ceux obtenus par les $B$ classifieurs individuels employés pendant la procédure de bagging. Nous pouvons observer que la variance des taux de bonne classification individuels augmente lorsque $k$ augmente, mais cela ne se fait pas au détriment des performances générales de la procédure de bagging.
 
 ```{r plot-4-all, fig.cap = "Taux de bonne classification des $k$-ppv, avec (en rouge) et sans (en bleu) bagging"}
 rate.df <- data.frame(knn = rate, bagging = rate.b)
