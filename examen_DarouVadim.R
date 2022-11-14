@@ -432,17 +432,17 @@ kable(knn.df, caption = "Taux de bonne classification par k-ppv pour différents
 ## ----4.3-------------------------------------
 B <- 100
 
-pred.b <- replicate(B, {
+pred.b <- replicate(B, { # procédure de bagging
   idx <- sample(length(y.train), replace = T)
   sapply(K, function (k) {
     as.numeric(knn(X.train[idx,], X.test, y.train[idx], k)) - 1
   })
 })
-rate.b <- apply(pred.b, 2, function (p) {
+rate.b <- apply(pred.b, 2, function (p) { # résultat du bagging
   p.maj <- as.numeric(apply(p, 1, mean) >= .5 )
   mean(p.maj == y.test)
 })
-rate.ind <- apply(pred.b, 2, function (p) {
+rate.ind <- apply(pred.b, 2, function (p) { # résultats individuels des classifieurs de bagging
   apply(p == y.test, 2, mean)
 })
 
